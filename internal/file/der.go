@@ -59,7 +59,7 @@ func getCertificateInfo(c *x509.Certificate) (Info, error) {
 	info := Info{
 		Description: desc,
 		Attributes: []Attribute{
-			{"Serial", c.SerialNumber.String()},
+			{"Serial", c.SerialNumber.Text(16)},
 		},
 	}
 

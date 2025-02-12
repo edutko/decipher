@@ -143,7 +143,7 @@ func Test_parseDERData(t *testing.T) {
 		{"x509/der/github.com.cer", Info{
 			Description: "x.509v3 end-entity certificate",
 			Attributes: []Attribute{
-				{Name: "Serial", Value: "17034156255497985825694118641198758684"},
+				{Name: "Serial", Value: "cd0a8bec632cfe645eca0a9b084fb1c"},
 				{Name: "Subject", Value: "CN=github.com,O=GitHub\\, Inc.,L=San Francisco,ST=California,C=US"},
 				{Name: "Subject key id", Value: "c707277885f29d33c94c5e567d5cd68e7267ebde"},
 				{Name: "Issuer", Value: "CN=DigiCert TLS Hybrid ECC SHA384 2020 CA1,O=DigiCert Inc,C=US"},
