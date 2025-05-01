@@ -27,5 +27,10 @@ var X448 = asn1.ObjectIdentifier{1, 3, 101, 111}
 var Ed25519 = asn1.ObjectIdentifier{1, 3, 101, 112}
 var Ed448 = asn1.ObjectIdentifier{1, 3, 101, 113}
 
+var ECDSAWithSHA1 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 1}
+var ECDSAWithSHA256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 2}
+var ECDSAWithSHA384 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 3}
+var ECDSAWithSHA512 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 4}
+
 var PrimeField = asn1.ObjectIdentifier{1, 2, 840, 10045, 1, 1}
 var CharacteristicTwoField = asn1.ObjectIdentifier{1, 2, 840, 10045, 1, 2}

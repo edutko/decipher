@@ -3,7 +3,12 @@ package names
 const (
 	DSA = "DSA"
 
-	ECDSA = "ECDSA"
+	ECDSA           = "ECDSA"
+	ECDSAWithSHA1   = "ECDSA-SHA1"
+	ECDSAWithSHA256 = "ECDSA-SHA256"
+	ECDSAWithSHA384 = "ECDSA-SHA384"
+	ECDSAWithSHA512 = "ECDSA-SHA512"
+
 	EdDSA = "EdDSA"
 	ECDH  = "ECDH"
 
@@ -16,6 +21,27 @@ const (
 	RSA        = "RSA"
 	RSA_PKCS15 = "RSA PKCS1 v1.5"
 	RSA_PSS    = "RSA PSS"
+
+	ML_DSA_44 = "ML-DSA-44"
+	ML_DSA_65 = "ML-DSA-65"
+	ML_DSA_87 = "ML-DSA-87"
+
+	ML_KEM_512  = "ML-KEM-512"
+	ML_KEM_768  = "ML-KEM-768"
+	ML_KEM_1024 = "ML-KEM-1024"
+
+	SLH_DSA_SHA2_128s  = "SLH-DSA-SHA2-128s"
+	SLH_DSA_SHA2_128f  = "SLH-DSA-SHA2-128f"
+	SLH_DSA_SHA2_192s  = "SLH-DSA-SHA2-192s"
+	SLH_DSA_SHA2_192f  = "SLH-DSA-SHA2-192f"
+	SLH_DSA_SHA2_256s  = "SLH-DSA-SHA2-256s"
+	SLH_DSA_SHA2_256f  = "SLH-DSA-SHA2-256f"
+	SLH_DSA_SHAKE_128s = "SLH-DSA-SHAKE_128s"
+	SLH_DSA_SHAKE_128f = "SLH-DSA-SHAKE_128f"
+	SLH_DSA_SHAKE_192s = "SLH-DSA-SHAKE_192s"
+	SLH_DSA_SHAKE_192f = "SLH-DSA-SHAKE_192f"
+	SLH_DSA_SHAKE_256s = "SLH-DSA-SHAKE_256s"
+	SLH_DSA_SHAKE_256f = "SLH-DSA-SHAKE_256f"
 
 	MD4         = "MD4"
 	MD5         = "MD5"
@@ -36,4 +62,34 @@ const (
 	BLAKE2b_256 = "BLAKE2b-256"
 	BLAKE2b_384 = "BLAKE2b-384"
 	BLAKE2b_512 = "BLAKE2b-512"
+
+	Kyber512_aes    = "Kyber512_aes"
+	Kyber768_aes    = "Kyber768_aes"
+	Kyber1024_aes   = "Kyber1024_aes"
+	Kyber512_shake  = "Kyber512_shake"
+	Kyber768_shake  = "Kyber768_shake"
+	Kyber1024_shake = "Kyber1024_shake"
+
+	Dilithium2    = "Dilithium2"
+	Dilithium3    = "Dilithium3"
+	Dilithium5    = "Dilithium5"
+	DilithiumAES2 = "DilithiumAES2"
+	DilithiumAES3 = "DilithiumAES3"
+	DilithiumAES5 = "DilithiumAES5"
+
+	Falcon_512  = "Falcon-512"
+	Falcon_1024 = "Falcon-1024"
+
+	SPHINCSPLUS_SHA256_128f_robust = "SPHINCSPLUS-SHA256-128f-robust"
+	SPHINCSPLUS_SHA256_128f_simple = "SPHINCSPLUS-SHA256-128f-simple"
+	SPHINCSPLUS_SHA256_128s_robust = "SPHINCSPLUS-SHA256-128s-robust"
+	SPHINCSPLUS_SHA256_128s_simple = "SPHINCSPLUS-SHA256-128s-simple"
+	SPHINCSPLUS_SHA256_192f_robust = "SPHINCSPLUS-SHA256-192f-robust"
+	SPHINCSPLUS_SHA256_192f_simple = "SPHINCSPLUS-SHA256-192f-simple"
+	SPHINCSPLUS_SHA256_192s_robust = "SPHINCSPLUS-SHA256-192s-robust"
+	SPHINCSPLUS_SHA256_192s_simple = "SPHINCSPLUS-SHA256-192s-simple"
+	SPHINCSPLUS_SHA256_256f_robust = "SPHINCSPLUS-SHA256-256f-robust"
+	SPHINCSPLUS_SHA256_256f_simple = "SPHINCSPLUS-SHA256-256f-simple"
+	SPHINCSPLUS_SHA256_256s_robust = "SPHINCSPLUS-SHA256-256s-robust"
+	SPHINCSPLUS_SHA256_256s_simple = "SPHINCSPLUS-SHA256-256s-simple"
 )

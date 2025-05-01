@@ -76,6 +76,12 @@ func pkixPublicKeyAttributes(k asn1struct.PKIXPublicKey) []Attribute {
 		attrs = x25519PublicKeyAttributes()
 	case k.Algorithm.Algorithm.Equal(oid.X448):
 		attrs = x448PublicKeyAttributes()
+
+	default:
+		attrs = []Attribute{
+			{"Algorithm", names.FromOID(k.Algorithm.Algorithm)},
+			{"Size", fmt.Sprintf("%d bits", k.PublicKey.BitLength)},
+		}
 	}
 
 	return attrs

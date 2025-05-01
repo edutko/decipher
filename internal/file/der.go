@@ -4,11 +4,14 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 
@@ -113,7 +116,17 @@ func getCertificateInfo(c *x509.Certificate) (Info, error) {
 		Attribute{"Fingerprint (SHA256)", hex.EncodeToString(fp256[:])},
 	)
 
-	info.Attributes = append(info.Attributes, Attribute{"Signature algorithm", c.SignatureAlgorithm.String()})
+	if c.SignatureAlgorithm == x509.UnknownSignatureAlgorithm {
+		var tbs tbsCertificate
+		_, err := asn1.Unmarshal(c.RawTBSCertificate, &tbs)
+		if err != nil {
+			info.Attributes = append(info.Attributes, Attribute{"Signature algorithm", "unknown"})
+		} else {
+			info.Attributes = append(info.Attributes, Attribute{"Signature algorithm", names.FromOID(tbs.SignatureAlgorithm.Algorithm)})
+		}
+	} else {
+		info.Attributes = append(info.Attributes, Attribute{"Signature algorithm", c.SignatureAlgorithm.String()})
+	}
 
 	var pubKeyInfo asn1struct.PKIXPublicKey
 	_, err := asn1.Unmarshal(c.RawSubjectPublicKeyInfo, &pubKeyInfo)
@@ -437,4 +450,28 @@ func parseOpenSSHPrivateKey(der []byte) (Info, error) {
 	}
 
 	return info, nil
+}
+
+type tbsCertificate struct {
+	Raw                asn1.RawContent
+	Version            int `asn1:"optional,explicit,default:0,tag:0"`
+	SerialNumber       *big.Int
+	SignatureAlgorithm pkix.AlgorithmIdentifier
+	Issuer             asn1.RawValue
+	Validity           validity
+	Subject            asn1.RawValue
+	PublicKey          publicKeyInfo
+	UniqueId           asn1.BitString   `asn1:"optional,tag:1"`
+	SubjectUniqueId    asn1.BitString   `asn1:"optional,tag:2"`
+	Extensions         []pkix.Extension `asn1:"omitempty,optional,explicit,tag:3"`
+}
+
+type validity struct {
+	NotBefore, NotAfter time.Time
+}
+
+type publicKeyInfo struct {
+	Raw       asn1.RawContent
+	Algorithm pkix.AlgorithmIdentifier
+	PublicKey asn1.BitString
 }
