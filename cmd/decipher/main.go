@@ -1,24 +1,33 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/edutko/decipher/internal/file"
+	"github.com/edutko/decipher/internal/host"
 )
 
-const usage = `Usage:
-    %[1]s <file>
-    %[1]s [-r] <directory>
-    %[1]s --version
+const usage = `usage:
+    %[1]s [<file> [<file>...]]
+    %[2]s -r <directory> [<directory>...]
+    %[2]s <host>[:<port>]
+    %[2]s --version
+    %[2]s --help
 `
 
 func main() {
-	flag.Usage = func() { _, _ = fmt.Fprintf(os.Stderr, "%s\n", fmt.Sprintf(usage, os.Args[0])) }
+	flag.Usage = func() {
+		argv0 := filepath.Base(os.Args[0])
+		_, _ = fmt.Fprintf(os.Stderr, "%s\n", fmt.Sprintf(usage, argv0, strings.Repeat(" ", len(argv0))))
+	}
 
 	recursive := flag.Bool("r", false, "recursive")
 	version := flag.Bool("version", false, "print version")
@@ -29,31 +38,62 @@ func main() {
 		os.Exit(0)
 	}
 
-	f := flag.Arg(0)
-	if f == "" || f == "-" {
-		inspectStdin()
+	if len(flag.Args()) <= 1 {
+		target := flag.Arg(0)
+		_, err := os.Stat(target)
+		if target == "" || errors.Is(err, os.ErrNotExist) && target == "-" {
+			inspectStdin()
+		} else if *recursive {
+			inspectFileOrDirectory(target, *recursive)
+		} else if maybeHost(target) {
+			if errors.Is(err, os.ErrNotExist) {
+				inspectHost(target)
+			} else if err != nil {
+				inspectFileOrDirectory(target, *recursive)
+			} else {
+				_, _ = fmt.Fprintln(os.Stderr, "ambiguous target; append a port to scan a host or prepend ./ to scan a file")
+				os.Exit(1)
+			}
+		} else {
+			inspectFileOrDirectory(target, *recursive)
+		}
 	} else {
 		for _, f := range flag.Args() {
-			s, err := os.Stat(f)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			depth := 0
-			if *recursive {
-				depth = maxDepth
-			}
-
-			if s.IsDir() {
-				if !*recursive {
-					_, _ = fmt.Fprintf(os.Stderr, "error: \"%s\" is a directory. Specify -r to recurse into directories.", f)
-					os.Exit(1)
-				}
-				inspectDirectory(f, depth)
-			} else {
-				inspectFile(f)
-			}
+			inspectFileOrDirectory(f, *recursive)
 		}
+	}
+}
+
+func maybeHost(s string) bool {
+	if hostnamePattern.MatchString(s) || ipv6Pattern.MatchString(s) || bracketedIpv6Pattern.MatchString(s) {
+		_, _, err := net.SplitHostPort(s)
+		if err != nil && strings.Contains(err.Error(), "missing port") {
+			s = s + ":443"
+			_, _, err = net.SplitHostPort(s)
+		}
+		return err == nil
+	}
+	return false
+}
+
+func inspectFileOrDirectory(f string, recursive bool) {
+	s, err := os.Stat(f)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	depth := 0
+	if recursive {
+		depth = maxDepth
+	}
+
+	if !s.IsDir() {
+		inspectFile(f)
+	} else if !recursive {
+		_, _ = fmt.Fprintf(os.Stderr, "error: \"%s\" is a directory. Specify -r to recurse into directories.", f)
+		os.Exit(1)
+	} else {
+		inspectDirectory(f, depth)
 	}
 }
 
@@ -97,6 +137,14 @@ func inspectFile(filePath string) {
 	printInfo(info, 0)
 }
 
+func inspectHost(addr string) {
+	info, err := host.Inspect(addr)
+	if err != nil {
+		log.Printf("error interrogating host %q: %v", addr, err)
+	}
+	printInfo(info, 0)
+}
+
 func inspectStdin() {
 	info, err := file.Inspect(os.Stdin)
 	if err != nil {
@@ -122,5 +170,14 @@ func printInfo(info file.Info, indent int) {
 }
 
 var Version = "0.0.0"
+
+// hostnamePattern matches strings that look like host names or IP addresses. It
+// is not very strict because it is only used to distinguish between a host
+// name (or IP address) and a file name.
+var (
+	hostnamePattern      = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.-]*(:[0-9]+)?$`)
+	ipv6Pattern          = regexp.MustCompile(`^[0-9A-Fa-f:]+(%[A-Za-z0-9]+)?$`)
+	bracketedIpv6Pattern = regexp.MustCompile(`^\[[0-9A-Fa-f:]+(%[A-Za-z0-9]+)?]:[0-9]+$`)
+)
 
 const maxDepth = 1000

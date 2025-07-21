@@ -44,10 +44,10 @@ func parseCertificate(der []byte) (Info, error) {
 	if err != nil {
 		return UnknownASN1Data, err
 	}
-	return getCertificateInfo(c)
+	return GetCertificateInfo(c)
 }
 
-func getCertificateInfo(c *x509.Certificate) (Info, error) {
+func GetCertificateInfo(c *x509.Certificate) (Info, error) {
 	desc := fmt.Sprintf("x.509v%d", c.Version)
 	if c.BasicConstraintsValid {
 		if c.IsCA {
