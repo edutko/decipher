@@ -11,15 +11,14 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/tls/internal/fips140tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"internal/byteorder"
 	"io"
 	"math/big"
 	"net"
@@ -208,7 +207,7 @@ func (test *clientTest) connFromCommand() (conn *recordingConn, child *exec.Cmd,
 		var serverInfo bytes.Buffer
 		for _, ext := range test.extensions {
 			pem.Encode(&serverInfo, &pem.Block{
-				Type:  fmt.Sprintf("SERVERINFO FOR EXTENSION %d", byteorder.BEUint16(ext)),
+				Type:  fmt.Sprintf("SERVERINFO FOR EXTENSION %d", binary.BigEndian.Uint16(ext)),
 				Bytes: ext,
 			})
 		}
@@ -2393,12 +2392,6 @@ func testGetClientCertificate(t *testing.T, version uint16) {
 
 		test.setup(clientConfig, serverConfig)
 
-		// TLS 1.1 isn't available for FIPS required
-		if fips140tls.Required() && clientConfig.MaxVersion == VersionTLS11 {
-			t.Logf("skipping test %d for FIPS mode", i)
-			continue
-		}
-
 		type serverResult struct {
 			cs  ConnectionState
 			err error
@@ -2537,15 +2530,11 @@ func TestDowngradeCanary(t *testing.T) {
 	if err := testDowngradeCanary(t, VersionTLS12, VersionTLS12); err != nil {
 		t.Errorf("client didn't ignore expected TLS 1.2 canary")
 	}
-	if !fips140tls.Required() {
-		if err := testDowngradeCanary(t, VersionTLS11, VersionTLS11); err != nil {
-			t.Errorf("client unexpectedly reacted to a canary in TLS 1.1")
-		}
-		if err := testDowngradeCanary(t, VersionTLS10, VersionTLS10); err != nil {
-			t.Errorf("client unexpectedly reacted to a canary in TLS 1.0")
-		}
-	} else {
-		t.Logf("skiping TLS 1.1 and TLS 1.0 downgrade canary checks in FIPS mode")
+	if err := testDowngradeCanary(t, VersionTLS11, VersionTLS11); err != nil {
+		t.Errorf("client unexpectedly reacted to a canary in TLS 1.1")
+	}
+	if err := testDowngradeCanary(t, VersionTLS10, VersionTLS10); err != nil {
+		t.Errorf("client unexpectedly reacted to a canary in TLS 1.0")
 	}
 }
 
@@ -2705,9 +2694,6 @@ func testTLS13OnlyClientHelloCipherSuite(t *testing.T, ciphers []uint16) {
 		Certificates: testConfig.Certificates,
 		GetConfigForClient: func(chi *ClientHelloInfo) (*Config, error) {
 			expectedCiphersuites := defaultCipherSuitesTLS13NoAES
-			if fips140tls.Required() {
-				expectedCiphersuites = allowedCipherSuitesTLS13FIPS
-			}
 			if len(chi.CipherSuites) != len(expectedCiphersuites) {
 				t.Errorf("only TLS 1.3 suites should be advertised, got=%x", chi.CipherSuites)
 			} else {

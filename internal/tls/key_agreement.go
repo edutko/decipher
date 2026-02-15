@@ -200,10 +200,6 @@ func (ka *ecdheKeyAgreement) generateServerKeyExchange(config *Config, cert *Cer
 		if err != nil {
 			return nil, err
 		}
-		if sigHash == crypto.SHA1 {
-			tlssha1.Value() // ensure godebug is initialized
-			tlssha1.IncNonDefault()
-		}
 		signed := slices.Concat(clientHello.random, hello.random, serverECDHEParams)
 		if (sigType == signaturePKCS1v15 || sigType == signatureRSAPSS) != ka.isRSA {
 			return nil, errors.New("tls: certificate cannot be used with the selected cipher suite")
@@ -339,10 +335,6 @@ func (ka *ecdheKeyAgreement) processServerKeyExchange(config *Config, clientHell
 		sigType, sigHash, err = typeAndHashFromSignatureScheme(ka.signatureAlgorithm)
 		if err != nil {
 			return err
-		}
-		if sigHash == crypto.SHA1 {
-			tlssha1.Value() // ensure godebug is initialized
-			tlssha1.IncNonDefault()
 		}
 		if (sigType == signaturePKCS1v15 || sigType == signatureRSAPSS) != ka.isRSA {
 			return errServerKeyExchange

@@ -10,13 +10,14 @@ import (
 	"crypto"
 	"crypto/hkdf"
 	"crypto/hmac"
-	"crypto/internal/fips140/tls13"
 	"crypto/rsa"
 	"crypto/subtle"
 	"errors"
 	"hash"
 	"slices"
 	"time"
+
+	"github.com/edutko/decipher/internal/tls/tls13"
 )
 
 type clientHandshakeStateTLS13 struct {

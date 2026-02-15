@@ -11,9 +11,7 @@ import (
 	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/internal/boring"
 	"crypto/rand"
-	"crypto/tls/internal/fips140tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -21,7 +19,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"internal/testenv"
 	"io"
 	"math"
 	"math/big"
@@ -177,40 +174,6 @@ func newLocalListener(t testing.TB) net.Listener {
 		t.Fatal(err)
 	}
 	return ln
-}
-
-func runWithFIPSEnabled(t *testing.T, testFunc func(t *testing.T)) {
-	originalFIPS := fips140tls.Required()
-	defer func() {
-		if originalFIPS {
-			fips140tls.Force()
-		} else {
-			fips140tls.TestingOnlyAbandon()
-		}
-	}()
-
-	fips140tls.Force()
-	t.Run("fips140tls", testFunc)
-}
-
-func runWithFIPSDisabled(t *testing.T, testFunc func(t *testing.T)) {
-	originalFIPS := fips140tls.Required()
-	defer func() {
-		if originalFIPS {
-			fips140tls.Force()
-		} else {
-			fips140tls.TestingOnlyAbandon()
-		}
-	}()
-
-	fips140tls.TestingOnlyAbandon()
-	t.Run("no-fips140tls", testFunc)
-}
-
-func skipFIPS(t *testing.T) {
-	if fips140tls.Required() {
-		t.Skip("skipping test in FIPS mode")
-	}
 }
 
 func TestDialTimeout(t *testing.T) {
@@ -550,8 +513,6 @@ func TestTLSUniqueMatches(t *testing.T) {
 }
 
 func TestVerifyHostname(t *testing.T) {
-	testenv.MustHaveExternalNetwork(t)
-
 	c, err := Dial("tcp", "www.google.com:https", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -573,8 +534,6 @@ func TestVerifyHostname(t *testing.T) {
 }
 
 func TestRealResumption(t *testing.T) {
-	testenv.MustHaveExternalNetwork(t)
-
 	config := &Config{
 		ServerName:         "yahoo.com",
 		ClientSessionCache: NewLRUClientSessionCache(0),
@@ -1321,9 +1280,6 @@ func TestConnectionState(t *testing.T) {
 	}
 
 	for _, v := range []uint16{VersionTLS10, VersionTLS12, VersionTLS13} {
-		if !isFIPSVersion(v) && fips140tls.Required() {
-			t.Skipf("skipping test in FIPS 140-3 mode for non-FIPS version %x", v)
-		}
 		var name string
 		switch v {
 		case VersionTLS10:
@@ -1404,8 +1360,6 @@ func TestBuildNameToCertificate_doesntModifyCertificates(t *testing.T) {
 func testingKey(s string) string { return strings.ReplaceAll(s, "TESTING KEY", "PRIVATE KEY") }
 
 func TestClientHelloInfo_SupportsCertificate(t *testing.T) {
-	skipFIPS(t) // Test certificates not FIPS compatible.
-
 	rsaCert := &Certificate{
 		Certificate: [][]byte{testRSACertificate},
 		PrivateKey:  testRSAPrivateKey,
@@ -1632,16 +1586,6 @@ func TestCipherSuites(t *testing.T) {
 			t.Errorf("%#04x: suite TLS 1.0-1.2, but SupportedVersions is %v", c.id, cc.SupportedVersions)
 		}
 
-		if cc.Insecure {
-			if slices.Contains(defaultCipherSuites(false), c.id) {
-				t.Errorf("%#04x: insecure suite in default list", c.id)
-			}
-		} else {
-			if !slices.Contains(defaultCipherSuites(false), c.id) {
-				t.Errorf("%#04x: secure suite not in default list", c.id)
-			}
-		}
-
 		if got := CipherSuiteName(c.id); got != cc.Name {
 			t.Errorf("%#04x: unexpected CipherSuiteName: got %q, expected %q", c.id, got, cc.Name)
 		}
@@ -1855,8 +1799,6 @@ func TestPKCS1OnlyCert(t *testing.T) {
 }
 
 func TestVerifyCertificates(t *testing.T) {
-	skipFIPS(t) // Test certificates not FIPS compatible.
-
 	// See https://go.dev/issue/31641.
 	t.Run("TLSv12", func(t *testing.T) { testVerifyCertificates(t, VersionTLS12) })
 	t.Run("TLSv13", func(t *testing.T) { testVerifyCertificates(t, VersionTLS13) })
@@ -2000,9 +1942,6 @@ func testVerifyCertificates(t *testing.T, version uint16) {
 }
 
 func TestHandshakeMLKEM(t *testing.T) {
-	if boring.Enabled && fips140tls.Required() {
-		t.Skip("ML-KEM not supported in BoringCrypto FIPS mode")
-	}
 	defaultWithPQ := []CurveID{X25519MLKEM768, SecP256r1MLKEM768, SecP384r1MLKEM1024,
 		X25519, CurveP256, CurveP384, CurveP521}
 	defaultWithoutPQ := []CurveID{X25519, CurveP256, CurveP384, CurveP521}
@@ -2113,31 +2052,12 @@ func TestHandshakeMLKEM(t *testing.T) {
 			expectClient:   defaultWithPQ,
 			expectSelected: X25519,
 		},
-		{
-			name: "GODEBUG tlsmlkem=0",
-			preparation: func(t *testing.T) {
-				t.Setenv("GODEBUG", "tlsmlkem=0")
-			},
-			expectClient:   defaultWithoutPQ,
-			expectSelected: X25519,
-		},
-		{
-			name: "GODEBUG tlssecpmlkem=0",
-			preparation: func(t *testing.T) {
-				t.Setenv("GODEBUG", "tlssecpmlkem=0")
-			},
-			expectClient:   []CurveID{X25519MLKEM768, X25519, CurveP256, CurveP384, CurveP521},
-			expectSelected: X25519MLKEM768,
-		},
 	}
 
 	baseConfig := testConfig.Clone()
 	baseConfig.CurvePreferences = nil
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if fips140tls.Required() && test.expectSelected == X25519 {
-				t.Skip("X25519 not supported in FIPS mode")
-			}
 			if test.preparation != nil {
 				test.preparation(t)
 			} else {
@@ -2150,7 +2070,7 @@ func TestHandshakeMLKEM(t *testing.T) {
 			serverConfig.GetConfigForClient = func(hello *ClientHelloInfo) (*Config, error) {
 				expectClient := slices.Clone(test.expectClient)
 				expectClient = slices.DeleteFunc(expectClient, func(c CurveID) bool {
-					return fips140tls.Required() && c == X25519
+					return false
 				})
 				if !slices.Equal(hello.SupportedCurves, expectClient) {
 					t.Errorf("got client curves %v, expected %v", hello.SupportedCurves, expectClient)
@@ -2210,16 +2130,6 @@ func TestX509KeyPairPopulateCertificate(t *testing.T) {
 	}
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
 
-	t.Run("x509keypairleaf=0", func(t *testing.T) {
-		t.Setenv("GODEBUG", "x509keypairleaf=0")
-		cert, err := X509KeyPair(certPEM, keyPEM)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if cert.Leaf != nil {
-			t.Fatal("Leaf should not be populated")
-		}
-	})
 	t.Run("x509keypairleaf=1", func(t *testing.T) {
 		t.Setenv("GODEBUG", "x509keypairleaf=1")
 		cert, err := X509KeyPair(certPEM, keyPEM)

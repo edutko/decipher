@@ -253,9 +253,6 @@ func selectSignatureScheme(vers uint16, c *Certificate, peerAlgs []SignatureSche
 		// can assume that it supports SHA1. See RFC 5246, Section 7.4.1.4.1.
 		// RFC 9155 made signature_algorithms mandatory in TLS 1.2, and we gated
 		// it behind the tlssha1 GODEBUG setting.
-		if tlssha1.Value() != "1" {
-			return 0, errors.New("tls: missing signature_algorithms from TLS 1.2 peer")
-		}
 		peerAlgs = []SignatureScheme{PKCS1WithSHA1, ECDSAWithSHA1}
 	}
 	// Pick signature scheme in the peer's preference order, as our

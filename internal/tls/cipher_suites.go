@@ -10,16 +10,11 @@ import (
 	"crypto/cipher"
 	"crypto/des"
 	"crypto/hmac"
-	"crypto/internal/boring"
-	fipsaes "crypto/internal/fips140/aes"
-	"crypto/internal/fips140/aes/gcm"
 	"crypto/rc4"
 	"crypto/sha1"
 	"crypto/sha256"
 	"fmt"
 	"hash"
-	"internal/cpu"
-	"runtime"
 	_ "unsafe" // for linkname
 
 	"golang.org/x/crypto/chacha20poly1305"
@@ -367,13 +362,7 @@ var tdesCiphers = map[uint16]bool{
 }
 
 var (
-	// Keep in sync with crypto/internal/fips140/aes/gcm.supportsAESGCM.
-	hasGCMAsmAMD64 = cpu.X86.HasAES && cpu.X86.HasPCLMULQDQ && cpu.X86.HasSSE41 && cpu.X86.HasSSSE3
-	hasGCMAsmARM64 = cpu.ARM64.HasAES && cpu.ARM64.HasPMULL
-	hasGCMAsmS390X = cpu.S390X.HasAES && cpu.S390X.HasAESCTR && cpu.S390X.HasGHASH
-	hasGCMAsmPPC64 = runtime.GOARCH == "ppc64" || runtime.GOARCH == "ppc64le"
-
-	hasAESGCMHardwareSupport = hasGCMAsmAMD64 || hasGCMAsmARM64 || hasGCMAsmS390X || hasGCMAsmPPC64
+	hasAESGCMHardwareSupport = false
 )
 
 var aesgcmCiphers = map[uint16]bool{
@@ -431,9 +420,7 @@ func macSHA1(key []byte) hash.Hash {
 	h := sha1.New
 	// The BoringCrypto SHA1 does not have a constant-time
 	// checksum function, so don't try to use it.
-	if !boring.Enabled {
-		h = newConstantTimeHash(h)
-	}
+	h = newConstantTimeHash(h)
 	return hmac.New(h, key)
 }
 
@@ -522,13 +509,7 @@ func aeadAESGCM(key, noncePrefix []byte) aead {
 	if err != nil {
 		panic(err)
 	}
-	var aead cipher.AEAD
-	if boring.Enabled {
-		aead, err = boring.NewGCMTLS(aes)
-	} else {
-		boring.Unreachable()
-		aead, err = gcm.NewGCMForTLS12(aes.(*fipsaes.Block))
-	}
+	aead, err := cipher.NewGCM(aes)
 	if err != nil {
 		panic(err)
 	}
@@ -556,13 +537,7 @@ func aeadAESGCMTLS13(key, nonceMask []byte) aead {
 	if err != nil {
 		panic(err)
 	}
-	var aead cipher.AEAD
-	if boring.Enabled {
-		aead, err = boring.NewGCMTLS13(aes)
-	} else {
-		boring.Unreachable()
-		aead, err = gcm.NewGCMForTLS13(aes.(*fipsaes.Block))
-	}
+	aead, err := cipher.NewGCM(aes)
 	if err != nil {
 		panic(err)
 	}
@@ -604,7 +579,6 @@ func (c *cthWrapper) Write(p []byte) (int, error) { return c.h.Write(p) }
 func (c *cthWrapper) Sum(b []byte) []byte         { return c.h.ConstantTimeSum(b) }
 
 func newConstantTimeHash(h func() hash.Hash) func() hash.Hash {
-	boring.Unreachable()
 	return func() hash.Hash {
 		return &cthWrapper{h().(constantTimeHash)}
 	}

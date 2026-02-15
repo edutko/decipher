@@ -11,18 +11,18 @@ import (
 	"crypto/hkdf"
 	"crypto/hmac"
 	"crypto/hpke"
-	"crypto/internal/fips140/tls13"
 	"crypto/rsa"
-	"crypto/tls/internal/fips140tls"
 	"crypto/x509"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"hash"
-	"internal/byteorder"
 	"io"
 	"slices"
 	"sort"
 	"time"
+
+	"github.com/edutko/decipher/internal/tls/tls13"
 )
 
 // maxClientPSKIdentities is the number of client PSK identities the server will
@@ -179,9 +179,6 @@ func (hs *serverHandshakeStateTLS13) processClientHello() error {
 	preferenceList := defaultCipherSuitesTLS13
 	if !hasAESGCMHardwareSupport || !isAESGCMPreferred(hs.clientHello.cipherSuites) {
 		preferenceList = defaultCipherSuitesTLS13NoAES
-	}
-	if fips140tls.Required() {
-		preferenceList = allowedCipherSuitesTLS13FIPS
 	}
 	for _, suiteID := range preferenceList {
 		hs.suite = mutualCipherSuiteTLS13(hs.clientHello.cipherSuites, suiteID)
@@ -1010,7 +1007,7 @@ func (c *Conn) sendSessionTicket(earlyData bool, extra [][]byte) error {
 	if _, err := c.config.rand().Read(ageAdd); err != nil {
 		return err
 	}
-	m.ageAdd = byteorder.LEUint32(ageAdd)
+	m.ageAdd = binary.LittleEndian.Uint32(ageAdd)
 
 	if earlyData {
 		// RFC 9001, Section 4.6.1

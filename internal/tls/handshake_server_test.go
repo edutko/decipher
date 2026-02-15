@@ -11,7 +11,6 @@ import (
 	"crypto/ecdh"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/tls/internal/fips140tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -139,20 +138,6 @@ func TestNoCompressionOverlap(t *testing.T) {
 	testClientHelloFailure(t, testConfig, clientHello, "client does not support uncompressed connections")
 }
 
-func TestNoRC4ByDefault(t *testing.T) {
-	clientHello := &clientHelloMsg{
-		vers:               VersionTLS12,
-		random:             make([]byte, 32),
-		cipherSuites:       []uint16{TLS_RSA_WITH_RC4_128_SHA},
-		compressionMethods: []uint8{compressionNone},
-	}
-	serverConfig := testConfig.Clone()
-	// Reset the enabled cipher suites to nil in order to test the
-	// defaults.
-	serverConfig.CipherSuites = nil
-	testClientHelloFailure(t, serverConfig, clientHello, "no cipher suite supported by both client and server")
-}
-
 func TestRejectSNIWithTrailingDot(t *testing.T) {
 	testClientHelloFailure(t, testConfig, &clientHelloMsg{
 		vers:       VersionTLS12,
@@ -213,8 +198,6 @@ func TestDontSelectRSAWithECDSAKey(t *testing.T) {
 }
 
 func TestRenegotiationExtension(t *testing.T) {
-	skipFIPS(t) // #70505
-
 	clientHello := &clientHelloMsg{
 		vers:                         VersionTLS12,
 		compressionMethods:           []uint8{compressionNone},
@@ -266,8 +249,6 @@ func TestRenegotiationExtension(t *testing.T) {
 }
 
 func TestTLS12OnlyCipherSuites(t *testing.T) {
-	skipFIPS(t) // No TLS 1.1 in FIPS mode.
-
 	// Test that a Server doesn't select a TLS 1.2-only cipher suite when
 	// the client negotiates TLS 1.1.
 	clientHello := &clientHelloMsg{
@@ -336,11 +317,6 @@ func TestTLSPointFormats(t *testing.T) {
 		{"RSA with ec_point_format", []uint16{TLS_RSA_WITH_AES_256_GCM_SHA384}, nil, []uint8{pointFormatUncompressed}, false},
 	}
 	for _, tt := range tests {
-		// The RSA subtests should be enabled for FIPS 140 required mode: #70505
-		if strings.HasPrefix(tt.name, "RSA") && fips140tls.Required() {
-			t.Logf("skipping in FIPS mode.")
-			continue
-		}
 		t.Run(tt.name, func(t *testing.T) {
 			clientHello := &clientHelloMsg{
 				vers:               VersionTLS12,
@@ -436,18 +412,9 @@ func TestVersion(t *testing.T) {
 	if state.Version != VersionTLS13 {
 		t.Fatalf("incorrect version %x, should be %x", state.Version, VersionTLS11)
 	}
-
-	clientConfig.MinVersion = 0
-	serverConfig.MaxVersion = VersionTLS11
-	_, _, err = testHandshake(t, clientConfig, serverConfig)
-	if err == nil {
-		t.Fatalf("expected failure to connect with TLS 1.0/1.1")
-	}
 }
 
 func TestCipherSuitePreference(t *testing.T) {
-	skipFIPS(t) // No RC4 or CHACHA20_POLY1305 in FIPS mode.
-
 	serverConfig := &Config{
 		CipherSuites: []uint16{TLS_RSA_WITH_RC4_128_SHA, TLS_AES_128_GCM_SHA256,
 			TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256},
@@ -1810,8 +1777,6 @@ func TestMultipleCertificates(t *testing.T) {
 }
 
 func TestAESCipherReordering(t *testing.T) {
-	skipFIPS(t) // No CHACHA20_POLY1305 for FIPS.
-
 	currentAESSupport := hasAESGCMHardwareSupport
 	defer func() { hasAESGCMHardwareSupport = currentAESSupport }()
 
@@ -1955,8 +1920,6 @@ func TestAESCipherReordering(t *testing.T) {
 }
 
 func TestAESCipherReorderingTLS13(t *testing.T) {
-	skipFIPS(t) // No CHACHA20_POLY1305 for FIPS.
-
 	currentAESSupport := hasAESGCMHardwareSupport
 	defer func() { hasAESGCMHardwareSupport = currentAESSupport }()
 

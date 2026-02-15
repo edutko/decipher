@@ -6,7 +6,6 @@ package tls
 
 import (
 	"crypto"
-	"crypto/tls/internal/fips140tls"
 	"os"
 	"testing"
 )
@@ -63,10 +62,6 @@ func TestSignatureSelection(t *testing.T) {
 	}
 
 	for testNo, test := range tests {
-		if fips140tls.Required() && test.expectedHash == crypto.SHA1 {
-			t.Logf("skipping test[%d] - not compatible with TLS FIPS mode", testNo)
-			continue
-		}
 		savedGODEBUG := os.Getenv("GODEBUG")
 		os.Setenv("GODEBUG", savedGODEBUG+","+test.godebug)
 

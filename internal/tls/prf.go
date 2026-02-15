@@ -7,7 +7,6 @@ package tls
 import (
 	"crypto"
 	"crypto/hmac"
-	"crypto/internal/fips140/tls12"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -15,6 +14,8 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+
+	"github.com/edutko/decipher/internal/tls/tls12"
 )
 
 type prfFunc func(secret []byte, label string, seed []byte, keyLen int) []byte

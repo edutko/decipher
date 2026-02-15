@@ -11,21 +11,19 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/hpke"
-	"crypto/internal/fips140/tls13"
 	"crypto/rsa"
 	"crypto/subtle"
-	"crypto/tls/internal/fips140tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
 	"hash"
-	"internal/godebug"
 	"io"
 	"net"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
+
+	"github.com/edutko/decipher/internal/tls/tls13"
 )
 
 type clientHandshakeState struct {
@@ -130,9 +128,7 @@ func (c *Conn) makeClientHello() (*clientHelloMsg, *keySharePrivateKeys, *echCli
 			hello.cipherSuites = nil
 		}
 
-		if fips140tls.Required() {
-			hello.cipherSuites = append(hello.cipherSuites, allowedCipherSuitesTLS13FIPS...)
-		} else if hasAESGCMHardwareSupport {
+		if hasAESGCMHardwareSupport {
 			hello.cipherSuites = append(hello.cipherSuites, defaultCipherSuitesTLS13...)
 		} else {
 			hello.cipherSuites = append(hello.cipherSuites, defaultCipherSuitesTLS13NoAES...)
@@ -431,11 +427,6 @@ func (c *Conn) loadSession(hello *clientHelloMsg) (
 			return nil, nil, nil, nil
 		}
 
-		// FIPS 140-3 requires the use of Extended Master Secret.
-		if !session.extMasterSecret && fips140tls.Required() {
-			return nil, nil, nil, nil
-		}
-
 		hello.sessionTicket = session.ticket
 		return
 	}
@@ -626,15 +617,6 @@ func (hs *clientHandshakeState) pickCipherSuite() error {
 		return errors.New("tls: server chose an unconfigured cipher suite")
 	}
 
-	if hs.c.config.CipherSuites == nil && !fips140tls.Required() && rsaKexCiphers[hs.suite.id] {
-		tlsrsakex.Value() // ensure godebug is initialized
-		tlsrsakex.IncNonDefault()
-	}
-	if hs.c.config.CipherSuites == nil && !fips140tls.Required() && tdesCiphers[hs.suite.id] {
-		tls3des.Value() // ensure godebug is initialized
-		tls3des.IncNonDefault()
-	}
-
 	hs.c.cipherSuite = hs.suite.id
 	return nil
 }
@@ -769,10 +751,6 @@ func (hs *clientHandshakeState) doFullHandshake() error {
 		hs.masterSecret = extMasterFromPreMasterSecret(c.vers, hs.suite, preMasterSecret,
 			hs.finishedHash.Sum())
 	} else {
-		if fips140tls.Required() {
-			c.sendAlert(alertHandshakeFailure)
-			return errors.New("tls: FIPS 140-3 requires the use of Extended Master Secret")
-		}
 		hs.masterSecret = masterFromPreMasterSecret(c.vers, hs.suite, preMasterSecret,
 			hs.hello.random, hs.serverHello.random)
 	}
@@ -802,10 +780,6 @@ func (hs *clientHandshakeState) doFullHandshake() error {
 			}
 			certVerify.hasSignatureAlgorithm = true
 			certVerify.signatureAlgorithm = signatureAlgorithm
-			if sigHash == crypto.SHA1 {
-				tlssha1.Value() // ensure godebug is initialized
-				tlssha1.IncNonDefault()
-			}
 			if hs.finishedHash.buffer == nil {
 				c.sendAlert(alertInternalError)
 				return errors.New("tls: internal error: did not keep handshake transcript for TLS 1.2")
@@ -1080,17 +1054,7 @@ func (hs *clientHandshakeState) sendFinished(out []byte) error {
 // to verify the signatures of during a TLS handshake.
 const defaultMaxRSAKeySize = 8192
 
-var tlsmaxrsasize = godebug.New("tlsmaxrsasize")
-
 func checkKeySize(n int) (max int, ok bool) {
-	if v := tlsmaxrsasize.Value(); v != "" {
-		if max, err := strconv.Atoi(v); err == nil {
-			if (n <= max) != (n <= defaultMaxRSAKeySize) {
-				tlsmaxrsasize.IncNonDefault()
-			}
-			return max, n <= max
-		}
-	}
 	return defaultMaxRSAKeySize, n <= defaultMaxRSAKeySize
 }
 

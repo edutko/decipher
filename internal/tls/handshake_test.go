@@ -53,9 +53,6 @@ var (
 )
 
 func runTestAndUpdateIfNeeded(t *testing.T, name string, run func(t *testing.T, update bool), wait bool) {
-	// FIPS mode is non-deterministic and so isn't suited for testing against static test transcripts.
-	skipFIPS(t)
-
 	success := t.Run(name, func(t *testing.T) {
 		if !*update && !wait {
 			t.Parallel()
@@ -418,8 +415,7 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 
 	if *bogoMode {
-		bogoShim()
-		os.Exit(0)
+		panic("bogoMode")
 	}
 
 	os.Exit(runMain(m))

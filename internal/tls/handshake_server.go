@@ -11,7 +11,6 @@ import (
 	"crypto/ed25519"
 	"crypto/rsa"
 	"crypto/subtle"
-	"crypto/tls/internal/fips140tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -208,11 +207,6 @@ func (c *Conn) readClientHello(ctx context.Context) (*clientHelloMsg, *echServer
 		return nil, nil, errors.New("tls: Encrypted Client Hello cannot be used pre-TLS 1.3")
 	}
 
-	if c.config.MinVersion == 0 && c.vers < VersionTLS12 {
-		tls10server.Value() // ensure godebug is initialized
-		tls10server.IncNonDefault()
-	}
-
 	return clientHello, ech, nil
 }
 
@@ -406,15 +400,6 @@ func (hs *serverHandshakeState) pickCipherSuite() error {
 	}
 	c.cipherSuite = hs.suite.id
 
-	if c.config.CipherSuites == nil && !fips140tls.Required() && rsaKexCiphers[hs.suite.id] {
-		tlsrsakex.Value() // ensure godebug is initialized
-		tlsrsakex.IncNonDefault()
-	}
-	if c.config.CipherSuites == nil && !fips140tls.Required() && tdesCiphers[hs.suite.id] {
-		tls3des.Value() // ensure godebug is initialized
-		tls3des.IncNonDefault()
-	}
-
 	for _, id := range hs.clientHello.cipherSuites {
 		if id == TLS_FALLBACK_SCSV {
 			// The client is doing a fallback connection. See RFC 7507.
@@ -541,10 +526,6 @@ func (hs *serverHandshakeState) checkForResumption() error {
 		// Aborting is somewhat harsh, but it's a MUST and it would indicate a
 		// weird downgrade in client capabilities.
 		return errors.New("tls: session supported extended_master_secret but client does not")
-	}
-	if !sessionState.extMasterSecret && fips140tls.Required() {
-		// FIPS 140-3 requires the use of Extended Master Secret.
-		return nil
 	}
 
 	c.peerCertificates = sessionState.peerCertificates
@@ -738,10 +719,6 @@ func (hs *serverHandshakeState) doFullHandshake() error {
 		hs.masterSecret = extMasterFromPreMasterSecret(c.vers, hs.suite, preMasterSecret,
 			hs.finishedHash.Sum())
 	} else {
-		if fips140tls.Required() {
-			c.sendAlert(alertHandshakeFailure)
-			return errors.New("tls: FIPS 140-3 requires the use of Extended Master Secret")
-		}
 		hs.masterSecret = masterFromPreMasterSecret(c.vers, hs.suite, preMasterSecret,
 			hs.clientHello.random, hs.hello.random)
 	}
@@ -780,10 +757,6 @@ func (hs *serverHandshakeState) doFullHandshake() error {
 			sigType, sigHash, err = typeAndHashFromSignatureScheme(certVerify.signatureAlgorithm)
 			if err != nil {
 				return c.sendAlert(alertInternalError)
-			}
-			if sigHash == crypto.SHA1 {
-				tlssha1.Value() // ensure godebug is initialized
-				tlssha1.IncNonDefault()
 			}
 			if hs.finishedHash.buffer == nil {
 				c.sendAlert(alertInternalError)
