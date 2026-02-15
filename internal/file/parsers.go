@@ -5,7 +5,9 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -17,7 +19,6 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/edutko/decipher/internal/names"
-	"github.com/edutko/decipher/internal/openpgp"
 	"github.com/edutko/decipher/internal/openpgp/packet"
 	"github.com/edutko/decipher/internal/ssh1"
 	"github.com/edutko/decipher/internal/util"
@@ -140,34 +141,63 @@ func pgpKey(info Info, data []byte) (Info, error) {
 		return info, fmt.Errorf("readArmoredPGPData: %w", err)
 	}
 
+	firstPacket := true
+	currentInfo := &info
+	var currentKeyCreationTime time.Time
 	r := packet.NewReader(blk.Body)
-	e, err := openpgp.ReadEntity(r)
-	if err != nil {
-		return info, fmt.Errorf("openpgp.ReadEntity: %w", err)
-	}
-
-	info.Attributes = gpgPublicKeyAttributes(e.PrimaryKey)
-	for _, i := range e.Identities {
-		attrs := gpgSignatureAttributes(i.SelfSignature, e.PrimaryKey.CreationTime)
-		for _, s := range i.Signatures {
-			attrs = append(attrs, gpgSignatureAttributes(s, e.PrimaryKey.CreationTime)...)
+	for {
+		pkt, err := r.Next()
+		if errors.Is(err, io.EOF) {
+			return info, nil
 		}
-		info.Children = append(info.Children, Info{
-			Description: i.Name,
-			Attributes:  attrs,
-		})
-	}
+		if err != nil {
+			return info, fmt.Errorf("openpgp.ReadEntity: %w", err)
+		}
 
-	for _, s := range e.Subkeys {
-		attrs := gpgPublicKeyAttributes(s.PublicKey)
-		attrs = append(attrs, gpgSignatureAttributes(s.Sig, s.PublicKey.CreationTime)...)
-		info.Children = append(info.Children, Info{
-			Description: "GPG/PGP subkey",
-			Attributes:  attrs,
-		})
+		switch p := pkt.(type) {
+		case *packet.PublicKey:
+			if !firstPacket {
+				info.Children = append(info.Children, Info{Description: "Subkey"})
+				currentInfo = &info.Children[len(info.Children)-1]
+			}
+			currentInfo.Attributes = append(currentInfo.Attributes, pgpPublicKeyAttributes(p)...)
+			currentKeyCreationTime = p.CreationTime
+		case *packet.PublicKeyV3:
+			if !firstPacket {
+				info.Children = append(info.Children, Info{Description: "Subkey (legacy v3)"})
+				currentInfo = &info.Children[len(info.Children)-1]
+			}
+			currentInfo.Attributes = append(currentInfo.Attributes, pgpPublicKeyV3Attributes(p)...)
+			currentKeyCreationTime = p.CreationTime
+		case *packet.PrivateKey:
+			if !firstPacket {
+				info.Children = append(info.Children, Info{Description: "Subkey"})
+				currentInfo = &info.Children[len(info.Children)-1]
+			}
+			currentInfo.Attributes = append(currentInfo.Attributes, pgpPrivateKeyAttributes(p)...)
+			currentKeyCreationTime = p.CreationTime
+		case *packet.UserId:
+			currentInfo.Attributes = append(info.Attributes, Attribute{"User ID", p.Id})
+		case *packet.Signature:
+			child := Info{
+				Description: "Signature",
+				Attributes:  pgpSignatureAttributes(p, currentKeyCreationTime),
+			}
+			currentInfo.Children = append(currentInfo.Children, child)
+		case *packet.SignatureV3:
+			child := Info{
+				Description: "Signature (legacy v3)",
+				Attributes:  pgpSignatureV3Attributes(p),
+			}
+			currentInfo.Children = append(currentInfo.Children, child)
+		default:
+			child := Info{
+				Description: fmt.Sprintf("Unknown PGP packet (%T)", pkt),
+			}
+			currentInfo.Children = append(currentInfo.Children, child)
+		}
+		firstPacket = false
 	}
-
-	return info, nil
 }
 
 func PuttyPPK(info Info, data []byte) (Info, error) {

@@ -2,7 +2,6 @@ package file
 
 import (
 	"bytes"
-	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"encoding/hex"
@@ -21,18 +20,18 @@ func readArmoredPGPData(b []byte) (*armor.Block, error) {
 }
 
 var pubkeyAlgorithmNames = map[packet.PublicKeyAlgorithm]string{
-	packet.PubKeyAlgoRSA:            "RSA",
-	packet.PubKeyAlgoRSAEncryptOnly: "RSA (encrypt only)",
-	packet.PubKeyAlgoRSASignOnly:    "RSA (sign only)",
-	packet.PubKeyAlgoElGamal:        "ElGamal",
-	packet.PubKeyAlgoDSA:            "DSA",
-	packet.PubKeyAlgoECDH:           "ECDH",
-	packet.PubKeyAlgoECDSA:          "ECDSA",
-	packet.PubKeyAlgoEdDSA:          "EdDSA",
+	packet.PubKeyAlgoRSA:            names.RSA,
+	packet.PubKeyAlgoRSAEncryptOnly: fmt.Sprintf("%s (encrypt only)", names.RSA),
+	packet.PubKeyAlgoRSASignOnly:    fmt.Sprintf("%s (sign only)", names.RSA),
+	packet.PubKeyAlgoElGamal:        names.ElGamal,
+	packet.PubKeyAlgoDSA:            names.DSA,
+	packet.PubKeyAlgoECDH:           names.ECDH,
+	packet.PubKeyAlgoECDSA:          names.ECDSA,
+	packet.PubKeyAlgoEdDSA:          names.EdDSA,
 }
 
 func keyFlagsToString(s *packet.Signature) string {
-	flags := []string{}
+	var flags []string
 	if s.FlagSign {
 		flags = append(flags, "sign")
 	}
@@ -48,31 +47,75 @@ func keyFlagsToString(s *packet.Signature) string {
 	if s.FlagAuthentication {
 		flags = append(flags, "authentication")
 	}
-	return strings.Join(flags, ", ")
+
+	if len(flags) > 0 {
+		return strings.Join(flags, ", ")
+	}
+	return "any"
 }
 
-func gpgPublicKeyAttributes(pk *packet.PublicKey) []Attribute {
+func pgpPublicKeyAttributes(p *packet.PublicKey) []Attribute {
 	attrs := []Attribute{
-		{"Key ID", pk.KeyIdString()},
-		{"Fingerprint", strings.ToUpper(hex.EncodeToString(pk.Fingerprint[:]))},
-		{"Algorithm", pubkeyAlgorithmNames[pk.PubKeyAlgo]},
+		{"Key ID", p.KeyIdString()},
+		{"Fingerprint", strings.ToUpper(hex.EncodeToString(p.Fingerprint[:]))},
+		{"Algorithm", pubkeyAlgorithmNames[p.PubKeyAlgo]},
 	}
-	switch t := pk.PublicKey.(type) {
+	switch t := p.PublicKey.(type) {
 	case *ecdsa.PublicKey:
 		attrs = append(attrs, Attribute{"Curve", t.Curve.Params().Name})
 	case ed25519.PublicKey:
 		attrs = append(attrs, Attribute{"Curve", "Ed25519"})
 	}
-	l, err := pk.BitLength()
+	l, err := p.BitLength()
 	if err == nil {
 		attrs = append(attrs, Attribute{"Size", fmt.Sprintf("%d bits", l)})
 	}
 	return attrs
 }
 
-func gpgSignatureAttributes(s *packet.Signature, keyCreationTime time.Time) []Attribute {
+func pgpPublicKeyV3Attributes(p *packet.PublicKeyV3) []Attribute {
+	attrs := []Attribute{
+		{"Key ID", p.KeyIdString()},
+		{"Fingerprint", strings.ToUpper(hex.EncodeToString(p.Fingerprint[:]))},
+		{"Algorithm", pubkeyAlgorithmNames[p.PubKeyAlgo]},
+	}
+	l, err := p.BitLength()
+	if err == nil {
+		attrs = append(attrs, Attribute{"Size", fmt.Sprintf("%d bits", l)})
+	}
+	if p.DaysToExpire > 0 {
+		exp := time.Duration(p.DaysToExpire) * 24 * time.Hour
+		attrs = append(attrs, Attribute{"Expires", p.CreationTime.Add(exp).Format("2006-01-02")})
+	} else {
+		attrs = append(attrs, Attribute{"Expires", "never"})
+	}
+	return attrs
+}
+
+func pgpPrivateKeyAttributes(p *packet.PrivateKey) []Attribute {
+	attrs := []Attribute{
+		{"Key ID", p.KeyIdString()},
+		{"Fingerprint", strings.ToUpper(hex.EncodeToString(p.Fingerprint[:]))},
+		{"Algorithm", pubkeyAlgorithmNames[p.PubKeyAlgo]},
+	}
+	switch t := p.PrivateKey.(type) {
+	case *ecdsa.PrivateKey:
+		attrs = append(attrs, Attribute{"Curve", t.Curve.Params().Name})
+	case ed25519.PrivateKey:
+		attrs = append(attrs, Attribute{"Curve", "Ed25519"})
+	}
+	l, err := p.BitLength()
+	if err == nil {
+		attrs = append(attrs, Attribute{"Size", fmt.Sprintf("%d bits", l)})
+	}
+	return attrs
+}
+
+func pgpSignatureAttributes(s *packet.Signature, keyCreationTime time.Time) []Attribute {
 	attrs := []Attribute{
 		{"Usage", keyFlagsToString(s)},
+		{"Algorithm", pubkeyAlgorithmNames[s.PubKeyAlgo]},
+		{"Hash", s.Hash.String()},
 		{"Created", s.CreationTime.Format("2006-01-02")},
 	}
 	if l := s.KeyLifetimeSecs; l != nil {
@@ -84,17 +127,10 @@ func gpgSignatureAttributes(s *packet.Signature, keyCreationTime time.Time) []At
 	return attrs
 }
 
-func gpgAlgorithmName(a packet.PublicKeyAlgorithm, h crypto.Hash) string {
-	switch a {
-	case packet.PubKeyAlgoDSA:
-		return names.DSA + "/" + h.String()
-	case packet.PubKeyAlgoECDSA:
-		return names.ECDSA
-	case packet.PubKeyAlgoEdDSA:
-		return names.EdDSA
-	case packet.PubKeyAlgoRSA, packet.PubKeyAlgoRSASignOnly:
-		return names.RSA + "/" + h.String()
-	default:
-		return "unknown"
+func pgpSignatureV3Attributes(s *packet.SignatureV3) []Attribute {
+	return []Attribute{
+		{"Algorithm", pubkeyAlgorithmNames[s.PubKeyAlgo]},
+		{"Hash", s.Hash.String()},
+		{"Created", s.CreationTime.Format("2006-01-02")},
 	}
 }

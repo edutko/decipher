@@ -7,6 +7,8 @@ const (
 	EdDSA = "EdDSA"
 	ECDH  = "ECDH"
 
+	ElGamal = "ElGamal"
+
 	HMAC = "HMAC"
 
 	MGF1 = "MGF1"
