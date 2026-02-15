@@ -145,9 +145,9 @@ func allTLS13Groups() []tls.CurveID {
 		ffdhe4096,
 		ffdhe6144,
 		ffdhe8192,
-		secp256r1MLKEM768,
-		x25519MLKEM768,
-		secp384r1MLKEM1024,
+		tls.SecP256r1MLKEM768,
+		tls.X25519MLKEM768,
+		tls.SecP384r1MLKEM1024,
 		mlkem512,
 		mlkem768,
 		mlkem1024,
@@ -187,11 +187,11 @@ func groupName(id tls.CurveID) string {
 		return "ffdhe6144"
 	case ffdhe8192:
 		return "ffdhe8192"
-	case secp256r1MLKEM768:
+	case tls.SecP256r1MLKEM768:
 		return "SECP256r1MLKEM768"
-	case x25519MLKEM768:
+	case tls.X25519MLKEM768:
 		return "X25519MLKEM768"
-	case secp384r1MLKEM1024:
+	case tls.SecP384r1MLKEM1024:
 		return "SECP384r1MLKEM1024"
 	case mlkem512:
 		return "MLKEM512"
@@ -216,8 +216,4 @@ const (
 	mlkem512  = tls.CurveID(512)
 	mlkem768  = tls.CurveID(513)
 	mlkem1024 = tls.CurveID(514)
-
-	secp256r1MLKEM768  = tls.CurveID(4587)
-	x25519MLKEM768     = tls.CurveID(4588)
-	secp384r1MLKEM1024 = tls.CurveID(4589)
 )

@@ -1,6 +1,6 @@
 module github.com/edutko/decipher
 
-go 1.25
+go 1.26
 
 require (
 	github.com/edutko/jks-go v0.4.1
