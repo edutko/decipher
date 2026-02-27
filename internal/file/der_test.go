@@ -148,6 +148,7 @@ func Test_parseDERData(t *testing.T) {
 				{Name: "Subject key id", Value: "c707277885f29d33c94c5e567d5cd68e7267ebde"},
 				{Name: "Issuer", Value: "CN=DigiCert TLS Hybrid ECC SHA384 2020 CA1,O=DigiCert Inc,C=US"},
 				{Name: "Authority key id", Value: "0abc0829178ca5396d7a0ece33c72eb3edfbc37a"},
+				{Name: "Issuing cert URLs", Value: "http://cacerts.digicert.com/DigiCertTLSHybridECCSHA3842020CA1-1.crt"},
 				{Name: "Not before", Value: "2023-02-14"},
 				{Name: "Not after", Value: "2024-03-14"},
 				{Name: "Key usage", Value: "digitalSignature"},

@@ -83,6 +83,9 @@ func getCertificateInfo(c *x509.Certificate) (Info, error) {
 	if len(c.AuthorityKeyId) > 0 {
 		info.Attributes = append(info.Attributes, Attribute{"Authority key id", hex.EncodeToString(c.AuthorityKeyId)})
 	}
+	if len(c.IssuingCertificateURL) > 0 {
+		info.Attributes = append(info.Attributes, Attribute{"Issuing cert URLs", strings.Join(c.IssuingCertificateURL, ", ")})
+	}
 
 	info.Attributes = append(info.Attributes,
 		Attribute{"Not before", c.NotBefore.Format("2006-01-02")},
