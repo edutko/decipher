@@ -155,6 +155,8 @@ func Test_parseDERData(t *testing.T) {
 				{Name: "Extended key usage", Value: "serverAuth, clientAuth"},
 				{Name: "SANs", Value: "github.com, www.github.com"},
 				{Name: "Signature algorithm", Value: "ECDSA-SHA384"},
+				{Name: "Fingerprint (SHA1)", Value: "a3b59e5fe884ee1f34d98eef858e3fb662ac104a"},
+				{Name: "Fingerprint (SHA256)", Value: "92a37fbd5e21a53a95c716e1144f442f582b94d0fafc673eb6717a4eb51a88a7"},
 			},
 			Children: []Info{
 				{

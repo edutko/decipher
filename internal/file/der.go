@@ -1,6 +1,8 @@
 package file
 
 import (
+	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/hex"
@@ -120,6 +122,13 @@ func getCertificateInfo(c *x509.Certificate) (Info, error) {
 	}
 
 	info.Attributes = append(info.Attributes, Attribute{"Signature algorithm", c.SignatureAlgorithm.String()})
+
+	fp1 := sha1.Sum(c.Raw)
+	fp256 := sha256.Sum256(c.Raw)
+	info.Attributes = append(info.Attributes,
+		Attribute{"Fingerprint (SHA1)", hex.EncodeToString(fp1[:])},
+		Attribute{"Fingerprint (SHA256)", hex.EncodeToString(fp256[:])},
+	)
 
 	return info, nil
 }
