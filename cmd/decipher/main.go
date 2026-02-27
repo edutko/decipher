@@ -108,8 +108,13 @@ func inspectStdin() {
 func printInfo(info file.Info, indent int) {
 	indentStr := strings.Repeat(" ", indent)
 	fmt.Printf("%s%s\n", indentStr, info.Description)
+	maxLen := 0
 	for _, a := range info.Attributes {
-		fmt.Printf("%s  %s: %s\n", indentStr, a.Name, a.Value)
+		maxLen = max(maxLen, len(a.Name))
+	}
+	for _, a := range info.Attributes {
+		alignment := strings.Repeat(" ", maxLen-len(a.Name)+1)
+		fmt.Printf("%s  %s:%s%s\n", indentStr, a.Name, alignment, a.Value)
 	}
 	for _, child := range info.Children {
 		printInfo(child, indent+2)
