@@ -171,7 +171,11 @@ func x509EKUs(ekus []x509.ExtKeyUsage, unknownEKUs []asn1.ObjectIdentifier) []st
 		ss = append(ss, m[u])
 	}
 	for _, o := range unknownEKUs {
-		ss = append(ss, o.String())
+		if o.Equal(oid.RemoteDesktopAuth) {
+			ss = append(ss, "microsoftRDPAuth")
+		} else {
+			ss = append(ss, o.String())
+		}
 	}
 	return ss
 }
