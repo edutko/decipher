@@ -62,39 +62,14 @@ func getCertificateInfo(c *x509.Certificate) (Info, error) {
 		Description: desc,
 		Attributes: []Attribute{
 			{"Serial", c.SerialNumber.Text(16)},
+			{"Subject", names.FromRawDN(c.RawSubject)},
+			{"Issuer", names.FromRawDN(c.RawIssuer)},
+			{"Not before", c.NotBefore.Format("2006-01-02 15:04:05 UTC")},
+			{"Not after", c.NotAfter.Format("2006-01-02 15:04:05 UTC")},
+			{"Key usage", strings.Join(x509KeyUsages(c.KeyUsage), ", ")},
+			{"Extended key usage", strings.Join(x509EKUs(c.ExtKeyUsage, c.UnknownExtKeyUsage), ", ")},
 		},
 	}
-
-	var pubKeyInfo asn1struct.PKIXPublicKey
-	_, err := asn1.Unmarshal(c.RawSubjectPublicKeyInfo, &pubKeyInfo)
-	if err == nil {
-		info.Children = []Info{
-			{
-				Description: "Public key",
-				Attributes:  pkixPublicKeyAttributes(pubKeyInfo),
-			},
-		}
-	}
-
-	info.Attributes = append(info.Attributes, Attribute{"Subject", names.FromRawDN(c.RawSubject)})
-	if len(c.SubjectKeyId) > 0 {
-		info.Attributes = append(info.Attributes, Attribute{"Subject key id", hex.EncodeToString(c.SubjectKeyId)})
-	}
-
-	info.Attributes = append(info.Attributes, Attribute{"Issuer", names.FromRawDN(c.RawIssuer)})
-	if len(c.AuthorityKeyId) > 0 {
-		info.Attributes = append(info.Attributes, Attribute{"Authority key id", hex.EncodeToString(c.AuthorityKeyId)})
-	}
-	if len(c.IssuingCertificateURL) > 0 {
-		info.Attributes = append(info.Attributes, Attribute{"Issuing cert URLs", strings.Join(c.IssuingCertificateURL, ", ")})
-	}
-
-	info.Attributes = append(info.Attributes,
-		Attribute{"Not before", c.NotBefore.Format("2006-01-02")},
-		Attribute{"Not after", c.NotAfter.Format("2006-01-02")},
-		Attribute{"Key usage", strings.Join(x509KeyUsages(c.KeyUsage), ", ")},
-		Attribute{"Extended key usage", strings.Join(x509EKUs(c.ExtKeyUsage, c.UnknownExtKeyUsage), ", ")},
-	)
 
 	if c.BasicConstraintsValid && c.IsCA && (c.MaxPathLen != 0 || c.MaxPathLenZero) {
 		info.Attributes = append(info.Attributes, Attribute{"Max path length", fmt.Sprintf("%d", c.MaxPathLen)})
@@ -121,7 +96,15 @@ func getCertificateInfo(c *x509.Certificate) (Info, error) {
 		info.Attributes = append(info.Attributes, Attribute{"SANs", strings.Join(sans, ", ")})
 	}
 
-	info.Attributes = append(info.Attributes, Attribute{"Signature algorithm", c.SignatureAlgorithm.String()})
+	if len(c.SubjectKeyId) > 0 {
+		info.Attributes = append(info.Attributes, Attribute{"Subject key id", hex.EncodeToString(c.SubjectKeyId)})
+	}
+	if len(c.AuthorityKeyId) > 0 {
+		info.Attributes = append(info.Attributes, Attribute{"Authority key id", hex.EncodeToString(c.AuthorityKeyId)})
+	}
+	if len(c.IssuingCertificateURL) > 0 {
+		info.Attributes = append(info.Attributes, Attribute{"Issuing cert URLs", strings.Join(c.IssuingCertificateURL, ", ")})
+	}
 
 	fp1 := sha1.Sum(c.Raw)
 	fp256 := sha256.Sum256(c.Raw)
@@ -129,6 +112,19 @@ func getCertificateInfo(c *x509.Certificate) (Info, error) {
 		Attribute{"Fingerprint (SHA1)", hex.EncodeToString(fp1[:])},
 		Attribute{"Fingerprint (SHA256)", hex.EncodeToString(fp256[:])},
 	)
+
+	info.Attributes = append(info.Attributes, Attribute{"Signature algorithm", c.SignatureAlgorithm.String()})
+
+	var pubKeyInfo asn1struct.PKIXPublicKey
+	_, err := asn1.Unmarshal(c.RawSubjectPublicKeyInfo, &pubKeyInfo)
+	if err == nil {
+		info.Children = []Info{
+			{
+				Description: "Public key",
+				Attributes:  pkixPublicKeyAttributes(pubKeyInfo),
+			},
+		}
+	}
 
 	return info, nil
 }
